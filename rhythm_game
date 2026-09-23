@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Neon Beat Mania</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+    body {
+      font-family: 'Rajdhani', sans-serif;
+      background-color: #060713;
+      color: #ffffff;
+      overflow: hidden;
+    }
+    .orbitron {
+      font-family: 'Orbitron', monospace;
+    }
+    .neon-glow-pink {
+      text-shadow: 0 0 10px #ff007f, 0 0 25px #ff007f;
+    }
+    .neon-glow-cyan {
+      text-shadow: 0 0 10px #00f3ff, 0 0 25px #00f3ff;
+    }
+    .neon-border-pink {
+      box-shadow: 0 0 15px rgba(255, 0, 127, 0.4), inset 0 0 10px rgba(255, 0, 127, 0.2);
+    }
+    .neon-border-cyan {
+      box-shadow: 0 0 15px rgba(0, 243, 255, 0.4), inset 0 0 10px rgba(0, 243, 255, 0.2);
+    }
+    .track-active-0 { background: radial-gradient(circle at bottom, rgba(255, 59, 107, 0.35) 0%, transparent 70%); }
+    .track-active-1 { background: radial-gradient(circle at bottom, rgba(0, 243, 255, 0.35) 0%, transparent 70%); }
+    .track-active-2 { background: radial-gradient(circle at bottom, rgba(0, 243, 255, 0.35) 0%, transparent 70%); }
+    .track-active-3 { background: radial-gradient(circle at bottom, rgba(255, 59, 107, 0.35) 0%, transparent 70%); }
+    @keyframes pulse-light {
+      0%, 100% { opacity: 0.8; }
+      50% { opacity: 1; filter: drop-shadow(0 0 12px currentColor); }
+    }
+    .animate-pulse-light {
+      animation: pulse-light 1.2s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="w-screen h-screen flex items-center justify-center m-0 p-0 select-none overflow-hidden bg-slate-950">
+
+  <div id="game-wrapper" class="relative w-full h-full max-w-lg mx-auto flex flex-col justify-between overflow-hidden shadow-2xl border-x border-slate-800 bg-[#070913]">
+    
+    <!-- Top HUD Bar -->
+    <header class="w-full px-4 py-2.5 flex items-center justify-between z-20 bg-slate-900/80 backdrop-blur-md border-b border-slate-800">
+      <div class="flex items-center space-x-2">
+        <span class="text-xs font-bold text-pink-500 uppercase tracking-widest orbitron">BPM</span>
+        <span id="hud-bpm" class="text-sm font-bold text-slate-200 orbitron">132</span>
+      </div>
+      <div class="flex flex-col items-center">
+        <span class="text-[10px] uppercase tracking-widest text-slate-400">Score</span>
+        <span id="hud-score" class="text-xl font-black text-cyan-300 orbitron tracking-wider">0000000</span>
+      </div>
+      <div class="flex items-center space-x-2">
+        <button id="btn-pause" class="px-2.5 py-1 text-xs rounded border border-slate-700 hover:border-slate-500 text-slate-300 bg-slate-800/80 transition-colors">
+          PAUSE
+        </button>
+      </div>
+    </header>
+
+    <!-- Progress Indicator -->
+    <div class="w-full h-1.5 bg-slate-900 relative z-20">
+      <div id="song-progress" class="h-full bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-400 w-0 transition-all duration-100"></div>
+    </div>
+
+    <!-- Main Game Canvas Container -->
+    <div class="relative flex-1 w-full h-full overflow-hidden flex items-center justify-center">
+      <canvas id="rhythmCanvas" class="w-full h-full block"></canvas>
+
+      <!-- Center Combo & Judgment Overlay -->
+      <div class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center z-10 space-y-1">
+        <div id="judgment-display" class="text-3xl font-black orbitron uppercase tracking-widest opacity-0 transform scale-90 transition-all duration-75">
+          PERFECT
+        </div>
+        <div id="combo-container" class="flex flex-col items-center opacity-0 transition-opacity duration-150">
+          <span id="combo-count" class="text-4xl sm:text-5xl font-black orbitron text-white neon-glow-cyan">0</span>
+          <span class="text-[11px] tracking-widest uppercase font-bold text-cyan-400">Combo</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile Touch / Keyboard visual buttons -->
+    <div id="touch-controls" class="w-full h-24 sm:h-28 grid grid-cols-4 gap-1 p-1 bg-slate-950 border-t border-slate-800 z-20">
+      <button data-lane="0" class="lane-touch-btn rounded-xl border border-pink-500/40 bg-pink-950/20 active:bg-pink-600/40 flex flex-col items-center justify-center transition-all select-none">
+        <span class="orbitron text-lg font-black text-pink-400">D</span>
+        <span class="text-[10px] text-pink-300/60 uppercase">Tap</span>
+      </button>
+      <button data-lane="1" class="lane-touch-btn rounded-xl border border-cyan-500/40 bg-cyan-950/20 active:bg-cyan-600/40 flex flex-col items-center justify-center transition-all select-none">
+        <span class="orbitron text-lg font-black text-cyan-400">F</span>
+        <span class="text-[10px] text-cyan-300/60 uppercase">Tap</span>
+      </button>
+      <button data-lane="2" class="lane-touch-btn rounded-xl border border-cyan-500/40 bg-cyan-950/20 active:bg-cyan-600/40 flex flex-col items-center justify-center transition-all select-none">
+        <span class="orbitron text-lg font-black text-cyan-400">J</span>
+        <span class="text-[10px] text-cyan-300/60 uppercase">Tap</span>
+      </button>
+      <button data-lane="3" class="lane-touch-btn rounded-xl border border-pink-500/40 bg-pink-950/20 active:bg-pink-600/40 flex flex-col items-center justify-center transition-all select-none">
+        <span class="orbitron text-lg font-black text-pink-400">K</span>
+        <span class="text-[10px] text-pink-300/60 uppercase">Tap</span>
+      </button>
+    </div>
+
+    <!-- Start & Song Selection Screen -->
+    <div id="start-modal" class="absolute inset-0 z-30 bg-slate-950/95 backdrop-blur-md flex flex-col items-center justify-between p-6">
+      <div class="w-full text-center mt-6">
+        <h1 class="orbitron text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-purple-400 to-cyan-400 animate-pulse-light tracking-wider">
+          NEON BEAT
+        </h1>
+        <p class="text-xs text-slate-400 uppercase tracking-widest mt-1">Cyberpunk Web Rhythm Action</p>
+      </div>
+
+      <!-- Song Card Selector -->
+      <div class="w-full max-w-sm flex flex-col gap-3 my-auto">
+        <p class="text-xs font-semibold text-slate-400 uppercase tracking-widest text-center">곡 선택 (Select Track)</p>
+        
+        <div data-track-id="0" class="song-card cursor-pointer p-3.5 rounded-xl border-2 border-pink-500 bg-pink-950/25 flex items-center justify-between transition-all hover:scale-[1.02]">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold px-1.5 py-0.5 rounded bg-pink-500/30 text-pink-300 border border-pink-500/50">EASY</span>
+              <h2 class="font-bold text-white text-base">Neon Sunrise</h2>
+            </div>
+            <p class="text-xs text-slate-400 mt-1">115 BPM • Synthwave Groove</p>
+          </div>
+          <div class="text-right">
+            <span class="text-xs font-mono text-pink-400">★☆☆☆</span>
+          </div>
+        </div>
+
+        <div data-track-id="1" class="song-card cursor-pointer p-3.5 rounded-xl border border-slate-700 bg-slate-900/40 flex items-center justify-between transition-all hover:scale-[1.02]">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold px-1.5 py-0.5 rounded bg-cyan-500/30 text-cyan-300 border border-cyan-500/50">NORMAL</span>
+              <h2 class="font-bold text-white text-base">Cyber Highway</h2>
+            </div>
+            <p class="text-xs text-slate-400 mt-1">135 BPM • High-Speed Electro</p>
+          </div>
+          <div class="text-right">
+            <span class="text-xs font-mono text-cyan-400">★★☆☆</span>
+          </div>
+        </div>
+
+        <div data-track-id="2" class="song-card cursor-pointer p-3.5 rounded-xl border border-slate-700 bg-slate-900/40 flex items-center justify-between transition-all hover:scale-[1.02]">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold px-1.5 py-0.5 rounded bg-purple-500/30 text-purple-300 border border-purple-500/50">HARD</span>
+              <h2 class="font-bold text-white text-base">Overdrive Protocol</h2>
+            </div>
+            <p class="text-xs text-slate-400 mt-1">160 BPM • Drum & Bass Rush</p>
+          </div>
+          <div class="text-right">
+            <span class="text-xs font-mono text-purple-400">★★★★</span>
+          </div>
+        </div>
+
+        <!-- Note Speed Slider -->
+        <div class="p-3 bg-slate-900/60 rounded-xl border border-slate-800 flex items-center justify-between mt-2">
+          <span class="text-xs font-semibold text-slate-300">노트 속도 (Speed)</span>
+          <div class="flex items-center gap-2">
+            <button id="speed-down" class="w-7 h-7 rounded bg-slate-800 text-slate-300 font-bold hover:bg-slate-700">-</button>
+            <span id="speed-val" class="w-8 text-center text-sm font-bold text-cyan-400 font-mono">1.2x</span>
+            <button id="speed-up" class="w-7 h-7 rounded bg-slate-800 text-slate-300 font-bold hover:bg-slate-700">+</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Play Button & Instructions -->
+      <div class="w-full max-w-sm flex flex-col items-center gap-3 mb-4">
+        <button id="btn-start-game" class="w-full py-4 rounded-2xl bg-gradient-to-r from-pink-600 via-purple-600 to-cyan-500 text-white font-black text-lg orbitron tracking-widest shadow-lg shadow-pink-500/25 active:scale-95 transition-transform">
+          GAME START
+        </button>
+        <div class="text-center text-[11px] text-slate-400">
+          키보드 <span class="text-pink-400 font-bold">D, F, J, K</span> 또는 화면 하단 <span class="text-cyan-400 font-bold">터치 버튼</span>을 눌러 플레이하세요!
+        </div>
+      </div>
+    </div>
+
+    <!-- Pause Modal -->
+    <div id="pause-modal" class="hidden absolute inset-0 z-30 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center p-6">
+      <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-xs text-center shadow-2xl">
+        <h2 class="orbitron text-2xl font-bold text-cyan-400 mb-4">GAME PAUSED</h2>
+        <div class="flex flex-col gap-3">
+          <button id="btn-resume" class="py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold tracking-wider">
+            계속하기 (Resume)
+          </button>
+          <button id="btn-restart" class="py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold">
+            다시하기 (Restart)
+          </button>
+          <button id="btn-quit" class="py-2.5 rounded-xl bg-pink-900/50 hover:bg-pink-900 border border-pink-700/60 text-pink-300 font-bold">
+            메뉴로 (Song Select)
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results Modal -->
+    <div id="result-modal" class="hidden absolute inset-0 z-30 bg-slate-950/95 backdrop-blur-md flex flex-col items-center justify-center p-6">
+      <div class="w-full max-w-sm rounded-3xl border border-slate-800 bg-slate-900/90 p-6 flex flex-col items-center text-center shadow-2xl">
+        <span class="text-xs uppercase tracking-widest text-slate-400 font-bold">Track Cleared</span>
+        <h2 id="result-track-title" class="orbitron text-xl font-bold text-white mt-1">Neon Sunrise</h2>
+
+        <!-- Rank Badge -->
+        <div id="result-rank" class="orbitron text-6xl font-black my-4 text-transparent bg-clip-text bg-gradient-to-br from-yellow-300 to-amber-500 filter drop-shadow-[0_0_15px_rgba(245,158,11,0.5)]">
+          S
+        </div>
+
+        <div class="w-full bg-slate-950/70 rounded-xl p-3.5 mb-4 border border-slate-800 space-y-2 text-sm">
+          <div class="flex justify-between">
+            <span class="text-slate-400">Total Score</span>
+            <span id="result-score" class="font-mono font-bold text-cyan-300">0</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-400">Max Combo</span>
+            <span id="result-maxcombo" class="font-mono font-bold text-white">0</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-400">Accuracy</span>
+            <span id="result-accuracy" class="font-mono font-bold text-emerald-400">100%</span>
+          </div>
+          <hr class="border-slate-800 my-1">
+          <div class="grid grid-cols-4 gap-1 text-[11px] text-center pt-1 font-mono">
+            <div class="text-amber-400 font-bold">PERF<br><span id="count-perf" class="text-white">0</span></div>
+            <div class="text-cyan-400 font-bold">GREAT<br><span id="count-great" class="text-white">0</span></div>
+            <div class="text-emerald-400 font-bold">GOOD<br><span id="count-good" class="text-white">0</span></div>
+            <div class="text-rose-400 font-bold">MISS<br><span id="count-miss" class="text-white">0</span></div>
+          </div>
+        </div>
+
+        <div class="flex w-full gap-2">
+          <button id="btn-result-retry" class="flex-1 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold">
+            다시하기
+          </button>
+          <button id="btn-result-menu" class="flex-1 py-3 rounded-xl bg-gradient-to-r from-pink-600 to-cyan-600 text-white font-bold orbitron">
+            곡 목록
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    /**
+     * Web Audio API Synthesizer & BGM Generator
+     * 외부 MP3 없이 모든 드럼, 베이스, 신스 아르페지오 및 타격음을 실시간 합성합니다.
+     */
+    class SoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.isMuted = false;
+        this.masterGain = null;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+          this.masterGain = this.ctx.createGain();
+          this.masterGain.gain.setValueAtTime(0.7, this.ctx.currentTime);
+          this.masterGain.connect(this.ctx.destination);
+        }
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      // 타격 피드백 신스 사운드 (4개 레인마다 다른 매력적인 피치)
+      playHitSound(lane, isPerfect = false) {
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        // 레인별 음정 (C5, D#5, G5, A#5 펜타토닉 네온 톤)
+        const freqs = [523.25, 622.25, 783.99, 932.33];
+        osc.type = isPerfect ? 'triangle' : 'sine';
+        osc.frequency.setValueAtTime(freqs[lane] || 600, now);
+        if (isPerfect) {
+          osc.frequency.exponentialRampToValueAtTime((freqs[lane] || 600) * 1.5, now + 0.08);
+        }
+
+        gain.gain.setValueAtTime(isPerfect ? 0.35 : 0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+
+        osc.start(now);
+        osc.stop(now + 0.13);
+      }
+
+      // 킥 드럼
+      playKick(time) {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.frequency.setValueAtTime(140, time);
+        osc.frequency.exponentialRampToValueAtTime(35, time + 0.08);
+
+        gain.gain.setValueAtTime(0.7, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.12);
+
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+
+        osc.start(time);
+        osc.stop(time + 0.13);
+      }
+
+      // 스네어 / 클랩
+      playSnare(time) {
+        if (!this.ctx) return;
+        // 노이즈 버퍼 생성
+        const bufferSize = this.ctx.sampleRate * 0.1;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'highpass';
+        filter.frequency.setValueAtTime(900, time);
+
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.35, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.masterGain);
+
+        noise.start(time);
+        noise.stop(time + 0.11);
+      }
+
+      // 하이햇
+      playHihat(time) {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(8000, time);
+
+        gain.gain.setValueAtTime(0.12, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.04);
+
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start(time);
+        osc.stop(time + 0.045);
+      }
+
+      // 베이스 신스 노트
+      playBassNote(freq, time, duration = 0.2) {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const filter = this.ctx.createBiquadFilter();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(freq, time);
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(450, time);
+        filter.frequency.exponentialRampToValueAtTime(100, time + duration);
+
+        gain.gain.setValueAtTime(0.28, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.masterGain);
+
+        osc.start(time);
+        osc.stop(time + duration + 0.01);
+      }
+
+      // 아르페지오 신스 리드
+      playSynthLead(freq, time, duration = 0.15) {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, time);
+
+        gain.gain.setValueAtTime(0.18, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+
+        osc.start(time);
+        osc.stop(time + duration + 0.02);
+      }
+    }
+
+    /**
+     * 3가지 트랙 데이터 정의: 각 트랙의 BPM, 길이, 채보(비트 목록)
+     */
+    const SONGS = [
+      {
+        id: 0,
+        title: "Neon Sunrise",
+        difficulty: "EASY",
+        bpm: 115,
+        totalBars: 24, // 약 50초
+        bassNotes: [65.41, 65.41, 77.78, 87.31], // C2, C2, D#2, F2
+        leadNotes: [261.63, 311.13, 392.00, 466.16, 523.25], // C4 ~ C5
+        generateNotes: function() {
+          const notes = [];
+          const stepSec = 60 / this.bpm / 4; // 16분음표 시간
+          const totalSteps = this.totalBars * 16;
+          // 이지 채보: 주로 4분음표 및 8분음표 위주
+          for (let s = 8; s < totalSteps - 8; s += 2) {
+            if (s % 4 === 0) {
+              const lane = (Math.floor(s / 4) * 2) % 4;
+              notes.push({ time: s * stepSec, lane: lane, hit: false, missed: false });
+            } else if (s % 8 === 2 && Math.random() > 0.4) {
+              const lane = Math.floor(Math.random() * 4);
+              notes.push({ time: s * stepSec, lane: lane, hit: false, missed: false });
+            }
+          }
+          return notes;
+        }
+      },
+      {
+        id: 1,
+        title: "Cyber Highway",
+        difficulty: "NORMAL",
+        bpm: 135,
+        totalBars: 28, // 약 50초
+        bassNotes: [73.42, 82.41, 98.00, 110.00], // D2, E2, G2, A2
+        leadNotes: [293.66, 329.63, 369.99, 440.00, 587.33],
+        generateNotes: function() {
+          const notes = [];
+          const stepSec = 60 / this.bpm / 4;
+          const totalSteps = this.totalBars * 16;
+          // 노멀 채보: 8분음표 리듬 + 엇박 + 더블 노트 가끔 출현
+          for (let s = 8; s < totalSteps - 12; s++) {
+            if (s % 4 === 0) {
+              notes.push({ time: s * stepSec, lane: s % 4, hit: false, missed: false });
+            } else if (s % 4 === 2) {
+              notes.push({ time: s * stepSec, lane: 3 - (s % 4), hit: false, missed: false });
+            } else if (s % 8 === 3 && Math.random() > 0.45) {
+              notes.push({ time: s * stepSec, lane: Math.floor(Math.random() * 4), hit: false, missed: false });
+            }
+          }
+          return notes;
+        }
+      },
+      {
+        id: 2,
+        title: "Overdrive Protocol",
+        difficulty: "HARD",
+        bpm: 160,
+        totalBars: 32, // 약 48초
+        bassNotes: [55.00, 61.74, 65.41, 73.42], // A1, B1, C2, D2
+        leadNotes: [440.00, 493.88, 523.25, 659.25, 783.99],
+        generateNotes: function() {
+          const notes = [];
+          const stepSec = 60 / this.bpm / 4;
+          const totalSteps = this.totalBars * 16;
+          // 하드 채보: 고속 16분음표 스트림 및 콤비네이션
+          for (let s = 8; s < totalSteps - 8; s++) {
+            const beat = s % 16;
+            if (beat % 2 === 0) {
+              notes.push({ time: s * stepSec, lane: (s * 3) % 4, hit: false, missed: false });
+            } else if (s % 8 === 7 || s % 8 === 1) {
+              notes.push({ time: s * stepSec, lane: (s + 2) % 4, hit: false, missed: false });
+            }
+          }
+          return notes;
+        }
+      }
+    ];
+
+    const sound = new SoundEngine();
+
+    const canvas = document.getElementById('rhythmCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let currentTrackIndex = 0;
+    let noteSpeedMultiplier = 1.2;
+    let isPlaying = false;
+    let isPaused = false;
+
+    let songStartTime = 0;
+    let songCurrentTime = 0;
+    let pauseStartTime = 0;
+    let activeNotes = [];
+    let totalSongDuration = 0;
+
+    // 점수 및 콤보
+    let score = 0;
+    let combo = 0;
+    let maxCombo = 0;
+    let judgmentCounts = { perfect: 0, great: 0, good: 0, miss: 0 };
+
+    // 키 매핑 & 상태
+    const LANE_KEYS = {
+      'KeyD': 0, 'KeyF': 1, 'KeyJ': 2, 'KeyK': 3,
+      'd': 0, 'f': 1, 'j': 2, 'k': 3,
+      'D': 0, 'F': 1, 'J': 2, 'K': 3
+    };
+    const lanePressed = [false, false, false, false];
+    const laneHitFeedback = [0, 0, 0, 0]; // 불빛 fade용
+
+    // 시각 효과 파티클
+    let particles = [];
+    let judgmentText = '';
+    let judgmentColor = '#fff';
+    let judgmentTimer = null;
+
+    // BGM 스케줄러 상태
+    let nextStepIndex = 0;
+
+    function resizeCanvas() {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.resetTransform();
+      ctx.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    class HitParticle {
+      constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 2 + Math.random() * 6;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed - 1.5;
+        this.radius = 2 + Math.random() * 3.5;
+        this.alpha = 1;
+        this.decay = 0.03 + Math.random() * 0.04;
+      }
+
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vy += 0.15; // 중력
+        this.alpha -= this.decay;
+        this.radius = Math.max(0, this.radius - 0.05);
+      }
+
+      draw(c) {
+        c.save();
+        c.globalAlpha = Math.max(0, this.alpha);
+        c.fillStyle = this.color;
+        c.shadowColor = this.color;
+        c.shadowBlur = 8;
+        c.beginPath();
+        c.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        c.fill();
+        c.restore();
+      }
+    }
+
+    function createHitParticles(laneX, hitLineY, color) {
+      for (let i = 0; i < 18; i++) {
+        particles.push(new HitParticle(laneX, hitLineY, color));
+      }
+    }
+
+    function scheduleBGM() {
+      if (!isPlaying || isPaused) return;
+
+      const track = SONGS[currentTrackIndex];
+      const stepSec = 60 / track.bpm / 4;
+      const lookahead = 0.15; // 150ms 앞서 스케줄링
+
+      while (nextStepIndex * stepSec < songCurrentTime + lookahead) {
+        const stepTime = songStartTime + (nextStepIndex * stepSec);
+        const beat16 = nextStepIndex % 16;
+        const barIndex = Math.floor(nextStepIndex / 16);
+
+        // 1. 드럼 루프 (Kick & Snare & Hihat)
+        if (beat16 === 0 || beat16 === 8) {
+          sound.playKick(stepTime);
+        } else if (beat16 === 4 || beat16 === 12) {
+          sound.playSnare(stepTime);
+        }
+        if (beat16 % 2 === 0) {
+          sound.playHihat(stepTime);
+        }
+
+        // 2. 신스 베이스라인
+        if (beat16 % 4 === 0) {
+          const bassNote = track.bassNotes[(barIndex + Math.floor(beat16 / 4)) % track.bassNotes.length];
+          sound.playBassNote(bassNote, stepTime, stepSec * 2);
+        }
+
+        // 3. 신스 리드 아르페지오 (리듬감 있는 멜로디)
+        if (beat16 % 2 === 1 || beat16 === 6 || beat16 === 14) {
+          const noteIndex = (nextStepIndex * 3) % track.leadNotes.length;
+          sound.playSynthLead(track.leadNotes[noteIndex], stepTime, stepSec * 1.5);
+        }
+
+        nextStepIndex++;
+        if (nextStepIndex >= track.totalBars * 16) {
+          break; // 트랙 끝
+        }
+      }
+    }
+
+    // 판정 판별 함수
+    function judgeHit(lane) {
+      if (!isPlaying || isPaused) return;
+
+      const track = SONGS[currentTrackIndex];
+      // 타격 피드백 이펙트 활성화
+      laneHitFeedback[lane] = 1.0;
+
+      // 판정 기준 윈도우 (초 단위)
+      const PERFECT_WINDOW = 0.055;
+      const GREAT_WINDOW = 0.11;
+      const GOOD_WINDOW = 0.17;
+      const MISS_WINDOW = 0.23;
+
+      // 해당 레인에서 아직 처리되지 않은 가장 가까운 노트 탐색
+      let closestNote = null;
+      let minDiff = 999;
+
+      for (let i = 0; i < activeNotes.length; i++) {
+        const note = activeNotes[i];
+        if (note.lane === lane && !note.hit && !note.missed) {
+          const diff = Math.abs(songCurrentTime - note.time);
+          if (diff < minDiff && diff <= MISS_WINDOW) {
+            minDiff = diff;
+            closestNote = note;
+          }
+        }
+      }
+
+      if (closestNote) {
+        closestNote.hit = true;
+        const rect = canvas.getBoundingClientRect();
+        const laneW = rect.width / 4;
+        const laneCenterX = laneW * lane + laneW / 2;
+        const hitLineY = rect.height - 75;
+
+        if (minDiff <= PERFECT_WINDOW) {
+          showJudgment("PERFECT", "#fbbf24");
+          score += 1000 + Math.min(combo * 15, 500);
+          combo++;
+          judgmentCounts.perfect++;
+          sound.playHitSound(lane, true);
+          createHitParticles(laneCenterX, hitLineY, '#f59e0b');
+        } else if (minDiff <= GREAT_WINDOW) {
+          showJudgment("GREAT", "#00f3ff");
+          score += 650 + Math.min(combo * 10, 300);
+          combo++;
+          judgmentCounts.great++;
+          sound.playHitSound(lane, false);
+          createHitParticles(laneCenterX, hitLineY, '#06b6d4');
+        } else if (minDiff <= GOOD_WINDOW) {
+          showJudgment("GOOD", "#34d399");
+          score += 300;
+          combo++;
+          judgmentCounts.good++;
+          sound.playHitSound(lane, false);
+          createHitParticles(laneCenterX, hitLineY, '#10b981');
+        } else {
+          showJudgment("MISS", "#f43f5e");
+          combo = 0;
+          judgmentCounts.miss++;
+        }
+
+        if (combo > maxCombo) maxCombo = combo;
+        updateHUD();
+      }
+    }
+
+    function showJudgment(text, color) {
+      const jd = document.getElementById('judgment-display');
+      const cc = document.getElementById('combo-container');
+      const cb = document.getElementById('combo-count');
+
+      jd.innerText = text;
+      jd.style.color = color;
+      jd.style.textShadow = `0 0 15px ${color}`;
+      jd.style.opacity = '1';
+      jd.style.transform = 'scale(1.15)';
+
+      if (combo > 1) {
+        cc.style.opacity = '1';
+        cb.innerText = combo;
+      } else {
+        cc.style.opacity = '0';
+      }
+
+      clearTimeout(judgmentTimer);
+      judgmentTimer = setTimeout(() => {
+        jd.style.opacity = '0';
+        jd.style.transform = 'scale(0.9)';
+      }, 500);
+    }
+
+    function updateHUD() {
+      const hudScore = document.getElementById('hud-score');
+      hudScore.innerText = score.toString().padStart(7, '0');
+    }
+
+    function render() {
+      if (!isPlaying) {
+        requestAnimationFrame(render);
+        return;
+      }
+
+      const rect = canvas.getBoundingClientRect();
+      const w = rect.width;
+      const h = rect.height;
+      const laneW = w / 4;
+      const hitLineY = h - 75; // 판정선 높이
+
+      if (!isPaused) {
+        songCurrentTime = sound.ctx.currentTime - songStartTime;
+        scheduleBGM();
+
+        // 프로그레스 바 갱신
+        const progressPct = Math.min(100, (songCurrentTime / totalSongDuration) * 100);
+        document.getElementById('song-progress').style.width = `${progressPct}%`;
+
+        // 트랙 종료 감지
+        if (songCurrentTime >= totalSongDuration + 1.2) {
+          endGame();
+          return;
+        }
+      }
+
+      // 화면 지우기
+      ctx.fillStyle = '#060713';
+      ctx.fillRect(0, 0, w, h);
+
+      // 레인 구분선 및 배경 렌더링
+      const laneGlowColors = [
+        'rgba(255, 0, 127,', // Lane 0 Pink
+        'rgba(0, 243, 255,', // Lane 1 Cyan
+        'rgba(0, 243, 255,', // Lane 2 Cyan
+        'rgba(255, 0, 127,'  // Lane 3 Pink
+      ];
+
+      for (let i = 0; i < 4; i++) {
+        const lx = i * laneW;
+
+        // 키를 누르고 있거나 피드백이 남아있는 경우 레인 빛 효과
+        if (lanePressed[i] || laneHitFeedback[i] > 0.05) {
+          const alpha = Math.max(lanePressed[i] ? 0.35 : 0, laneHitFeedback[i] * 0.45);
+          ctx.fillStyle = `${laneGlowColors[i]} ${alpha})`;
+          ctx.fillRect(lx, 0, laneW, h);
+        }
+
+        // 레인 세로 구분선
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(lx, 0);
+        ctx.lineTo(lx, h);
+        ctx.stroke();
+
+        // 피드백 감쇠
+        if (!isPaused && laneHitFeedback[i] > 0) {
+          laneHitFeedback[i] = Math.max(0, laneHitFeedback[i] - 0.06);
+        }
+      }
+
+      // 판정선 (Hit Line) 렌더링
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+      ctx.lineWidth = 3;
+      ctx.shadowColor = '#00f3ff';
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.moveTo(0, hitLineY);
+      ctx.lineTo(w, hitLineY);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // 판정선 가이드 타겟 박스
+      for (let i = 0; i < 4; i++) {
+        const lx = i * laneW + 6;
+        const boxW = laneW - 12;
+        ctx.strokeStyle = lanePressed[i] ? '#ffffff' : (i === 0 || i === 3 ? '#ff007f' : '#00f3ff');
+        ctx.lineWidth = lanePressed[i] ? 3 : 1.5;
+        ctx.strokeRect(lx, hitLineY - 14, boxW, 28);
+      }
+
+      const noteSpeed = 520 * noteSpeedMultiplier; // 초당 이동 픽셀
+
+      // 노트 렌더링
+      for (let i = 0; i < activeNotes.length; i++) {
+        const note = activeNotes[i];
+
+        // 아직 치지 않았고 화면에 보일 수 있는 노트
+        if (!note.hit) {
+          const timeUntilHit = note.time - songCurrentTime;
+          const noteY = hitLineY - (timeUntilHit * noteSpeed);
+
+          // 지나친 노트 미스 처리
+          if (timeUntilHit < -0.22 && !note.missed) {
+            note.missed = true;
+            combo = 0;
+            judgmentCounts.miss++;
+            showJudgment("MISS", "#f43f5e");
+            updateHUD();
+          }
+
+          // 화면 내에 있을 때만 렌더링
+          if (noteY > -50 && noteY < h + 20) {
+            const nx = note.lane * laneW + 8;
+            const nw = laneW - 16;
+            const nh = 22;
+
+            const isOuter = (note.lane === 0 || note.lane === 3);
+            const mainColor = isOuter ? '#ff007f' : '#00f3ff';
+            const subColor = isOuter ? '#ff77bb' : '#99f8ff';
+
+            ctx.save();
+            // 노트 글로우
+            ctx.shadowColor = mainColor;
+            ctx.shadowBlur = 12;
+
+            // 노트 본체 그라데이션
+            const grad = ctx.createLinearGradient(nx, noteY, nx, noteY + nh);
+            grad.addColorStop(0, subColor);
+            grad.addColorStop(0.7, mainColor);
+            grad.addColorStop(1, '#000000');
+            ctx.fillStyle = grad;
+
+            // 둥근 사각 노트
+            roundRect(ctx, nx, noteY, nw, nh, 6, true, false);
+
+            // 노트 상단 하이라이트 라인
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(nx + 4, noteY + 2, nw - 8, 3);
+            ctx.restore();
+          }
+        }
+      }
+
+      // 파티클 렌더링 및 갱신
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        if (!isPaused) p.update();
+        p.draw(ctx);
+        if (p.alpha <= 0) {
+          particles.splice(i, 1);
+        }
+      }
+
+      requestAnimationFrame(render);
+    }
+
+    // Canvas Rounded Rectangle 유틸리티
+    function roundRect(c, x, y, width, height, radius, fill, stroke) {
+      c.beginPath();
+      c.moveTo(x + radius, y);
+      c.lineTo(x + width - radius, y);
+      c.quadraticCurveTo(x + width, y, x + width, y + radius);
+      c.lineTo(x + width, y + height - radius);
+      c.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+      c.lineTo(x + radius, y + height);
+      c.quadraticCurveTo(x, y + height, x, y + height - radius);
+      c.lineTo(x, y + radius);
+      c.quadraticCurveTo(x, y, x + radius, y);
+      c.closePath();
+      if (fill) c.fill();
+      if (stroke) c.stroke();
+    }
+
+    // 키보드 이벤트 리스너
+    window.addEventListener('keydown', (e) => {
+      if (e.repeat) return;
+      const lane = LANE_KEYS[e.code] !== undefined ? LANE_KEYS[e.code] : LANE_KEYS[e.key];
+      if (lane !== undefined) {
+        lanePressed[lane] = true;
+        updateTouchBtnUI(lane, true);
+        judgeHit(lane);
+      }
+      if (e.code === 'Escape' && isPlaying) {
+        togglePause();
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      const lane = LANE_KEYS[e.code] !== undefined ? LANE_KEYS[e.code] : LANE_KEYS[e.key];
+      if (lane !== undefined) {
+        lanePressed[lane] = false;
+        updateTouchBtnUI(lane, false);
+      }
+    });
+
+    // 모바일 터치 버튼 바인딩
+    const touchButtons = document.querySelectorAll('.lane-touch-btn');
+    touchButtons.forEach(btn => {
+      const lane = parseInt(btn.getAttribute('data-lane'), 10);
+
+      const handlePress = (e) => {
+        e.preventDefault();
+        lanePressed[lane] = true;
+        updateTouchBtnUI(lane, true);
+        judgeHit(lane);
+      };
+
+      const handleRelease = (e) => {
+        e.preventDefault();
+        lanePressed[lane] = false;
+        updateTouchBtnUI(lane, false);
+      };
+
+      btn.addEventListener('touchstart', handlePress, { passive: false });
+      btn.addEventListener('touchend', handleRelease, { passive: false });
+      btn.addEventListener('mousedown', handlePress);
+      btn.addEventListener('mouseup', handleRelease);
+      btn.addEventListener('mouseleave', handleRelease);
+    });
+
+    function updateTouchBtnUI(lane, isDown) {
+      const btn = touchButtons[lane];
+      if (!btn) return;
+      if (isDown) {
+        btn.classList.add('scale-95', 'brightness-125');
+      } else {
+        btn.classList.remove('scale-95', 'brightness-125');
+      }
+    }
+
+    // 곡 시작
+    function startGame(trackIndex) {
+      sound.init();
+      currentTrackIndex = trackIndex;
+      const track = SONGS[trackIndex];
+
+      document.getElementById('hud-bpm').innerText = track.bpm;
+      document.getElementById('start-modal').classList.add('hidden');
+      document.getElementById('pause-modal').classList.add('hidden');
+      document.getElementById('result-modal').classList.add('hidden');
+
+      // 변수 초기화
+      score = 0;
+      combo = 0;
+      maxCombo = 0;
+      judgmentCounts = { perfect: 0, great: 0, good: 0, miss: 0 };
+      nextStepIndex = 0;
+      updateHUD();
+
+      // 채보 및 곡 재생 타이밍 설정
+      activeNotes = track.generateNotes();
+      totalSongDuration = (track.totalBars * 16) * (60 / track.bpm / 4);
+
+      songStartTime = sound.ctx.currentTime + 0.4;
+      songCurrentTime = -0.4;
+      isPaused = false;
+      isPlaying = true;
+    }
+
+    function togglePause() {
+      if (!isPlaying) return;
+      const pauseModal = document.getElementById('pause-modal');
+      if (!isPaused) {
+        isPaused = true;
+        pauseStartTime = sound.ctx.currentTime;
+        pauseModal.classList.remove('hidden');
+      } else {
+        const pausedDuration = sound.ctx.currentTime - pauseStartTime;
+        songStartTime += pausedDuration;
+        isPaused = false;
+        pauseModal.classList.add('hidden');
+      }
+    }
+
+    function endGame() {
+      isPlaying = false;
+      isPaused = false;
+
+      const track = SONGS[currentTrackIndex];
+      const resultModal = document.getElementById('result-modal');
+      document.getElementById('result-track-title').innerText = track.title;
+      document.getElementById('result-score').innerText = score.toLocaleString();
+      document.getElementById('result-maxcombo').innerText = maxCombo;
+
+      const totalNotes = judgmentCounts.perfect + judgmentCounts.great + judgmentCounts.good + judgmentCounts.miss;
+      const accuracy = totalNotes > 0 
+        ? (((judgmentCounts.perfect * 100) + (judgmentCounts.great * 70) + (judgmentCounts.good * 40)) / (totalNotes * 100) * 100).toFixed(1)
+        : 100;
+      document.getElementById('result-accuracy').innerText = `${accuracy}%`;
+
+      document.getElementById('count-perf').innerText = judgmentCounts.perfect;
+      document.getElementById('count-great').innerText = judgmentCounts.great;
+      document.getElementById('count-good').innerText = judgmentCounts.good;
+      document.getElementById('count-miss').innerText = judgmentCounts.miss;
+
+      // 랭크 계산
+      let rank = 'D';
+      if (accuracy >= 95 && judgmentCounts.miss === 0) rank = 'SS';
+      else if (accuracy >= 90) rank = 'S';
+      else if (accuracy >= 80) rank = 'A';
+      else if (accuracy >= 70) rank = 'B';
+      else if (accuracy >= 60) rank = 'C';
+
+      const rankElem = document.getElementById('result-rank');
+      rankElem.innerText = rank;
+
+      resultModal.classList.remove('hidden');
+    }
+
+    // 트랙 카드 선택 이벤트
+    const songCards = document.querySelectorAll('.song-card');
+    songCards.forEach(card => {
+      card.addEventListener('click', () => {
+        songCards.forEach(c => {
+          c.classList.remove('border-2', 'border-pink-500', 'bg-pink-950/25');
+          c.classList.add('border', 'border-slate-700', 'bg-slate-900/40');
+        });
+        card.classList.add('border-2', 'border-pink-500', 'bg-pink-950/25');
+        card.classList.remove('border-slate-700', 'bg-slate-900/40');
+        currentTrackIndex = parseInt(card.getAttribute('data-track-id'), 10);
+      });
+    });
+
+    // 배속 조절
+    const speedVal = document.getElementById('speed-val');
+    document.getElementById('speed-down').addEventListener('click', () => {
+      noteSpeedMultiplier = Math.max(0.8, Math.round((noteSpeedMultiplier - 0.2) * 10) / 10);
+      speedVal.innerText = `${noteSpeedMultiplier.toFixed(1)}x`;
+    });
+    document.getElementById('speed-up').addEventListener('click', () => {
+      noteSpeedMultiplier = Math.min(2.6, Math.round((noteSpeedMultiplier + 0.2) * 10) / 10);
+      speedVal.innerText = `${noteSpeedMultiplier.toFixed(1)}x`;
+    });
+
+    // 시작 및 모달 버튼
+    document.getElementById('btn-start-game').addEventListener('click', () => {
+      startGame(currentTrackIndex);
+    });
+
+    document.getElementById('btn-pause').addEventListener('click', togglePause);
+    document.getElementById('btn-resume').addEventListener('click', togglePause);
+
+    document.getElementById('btn-restart').addEventListener('click', () => {
+      document.getElementById('pause-modal').classList.add('hidden');
+      startGame(currentTrackIndex);
+    });
+
+    document.getElementById('btn-quit').addEventListener('click', () => {
+      isPlaying = false;
+      document.getElementById('pause-modal').classList.add('hidden');
+      document.getElementById('start-modal').classList.remove('hidden');
+    });
+
+    document.getElementById('btn-result-retry').addEventListener('click', () => {
+      document.getElementById('result-modal').classList.add('hidden');
+      startGame(currentTrackIndex);
+    });
+
+    document.getElementById('btn-result-menu').addEventListener('click', () => {
+      document.getElementById('result-modal').classList.add('hidden');
+      document.getElementById('start-modal').classList.remove('hidden');
+    });
+
+    // 초기 루프 가동
+    window.onload = function() {
+      resizeCanvas();
+      render();
+    };
+  </script>
+</body>
+</html>
